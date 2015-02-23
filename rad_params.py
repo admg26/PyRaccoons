@@ -333,6 +333,7 @@ class LW(ParamSet):
 
       return etah, eta
 # }}}
+# }}}
 
 class SW(ParamSet):
 # {{{
@@ -353,7 +354,9 @@ class SW(ParamSet):
 def lwrecord1_2(pset):
 # {{{
     return Namelist('LW', \
-        [Param('IATM',   1, form=(49,1,0,'f')),\
+        [Param('IATM',   1, form='{:>50.0d}'
+        19.50
+        (49,1,0,'d')),\
          Param('IXSECT', 0, form=(19,1,0,'f')),\
          Param('ISCAT',  0, form=(12,1,0,'f')),\
          Param('NUMANGS',4, form=(0,2,0,'f')),\
@@ -369,6 +372,25 @@ def lwrecord1_4(pset):
          Param('IEMIS', 0, form=(1,1,0,'f')),\
          Param('IREFLECT',  0, form=(2,1,0,'f')),\
          Param('SEMISS', 1, form=(0,5,3,'f')),\
+         pset)
+# }}}
+
+def lwrecord2_1(pset, NL):
+# {{{
+   def frm_trig(v, pset):
+      if v == 0:
+         pset.PAVE._fmt = '{:>10.4f}'
+      elif v == 1:
+         pset.PAVE._fmt = '{:>15.7e}'
+      else:
+         pset.force('PAVE', 0)
+         raise ValueError('Only accepted values for IFORM are 0 and 1; setting to 0.')
+         
+    return Namelist('LW', \
+        [Param('IFORM',  0, form='{:>2d}', trig=frm_trig), \
+         Param('NLAYRS', NL, form='{:>3d}'),\
+         Param('NMOL', 7, form='{:>5d}'),\
+         Param('PAVE', np.zeros(NL, 'd'), form='{:>10.4f}')],\
          pset)
 # }}}
 
