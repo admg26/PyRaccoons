@@ -3,10 +3,11 @@ from os.path import expanduser
 
 class Param():
 # {{{
-   def __init__(self, name, default, dtype=None, trigger=None, show=False):
+    def __init__(self, name, default, form=None, dtype=None, trigger=None, show=False):
 # {{{
       self.name = name
       self.default = default
+      self.form = form
       self.trigger = trigger
       self.show=show
       if hasattr(default, '__len__'):
@@ -16,20 +17,23 @@ class Param():
 
       if dtype is None: self.dtype = self._gettype(default) # Auto-detect dtype
       else: self.dtype = dtype
-
-      assert self.dtype in [np.int32, np.float32, np.bool]
-      self._fmt = self._getfmt(self.dtype)
+        
+         
+      assert self.dtype in [np.int32, np.float32, np.a1]
+      fmt_spec = '{:>{width}.{precision}{notation}}'
+      self._fmt = fmt_spec.format(self.value,width=form[0]+form[1],\
+                  precision=form[2], notation = form[3])
 # }}}   
 
-   @staticmethod
-   def copy(prm):
+    @staticmethod
+    def copy(prm):
 # {{{
       p = prm.__class__(prm.name, prm.default, prm.dtype, prm.trigger, prm.show)
       p.value = prm.value
       return p
 # }}}
 
-   def __str__(self):
+    def __str__(self):
 # {{{
       vstr = ''
 
@@ -54,40 +58,44 @@ class Param():
       return '<Param: %s = %s>' % (self.name.upper(), vstr.upper())
 # }}} 
 
-   def write(self):
+    def write(self):
+        
 # {{{
-      vstr = ''
-
-      if hasattr(self.value, '__len__'):
-         val = self.value[0]
-         n = 1
-         for v in self.value[1:]:
-            if val == v: 
-               n += 1
-            else: 
-               if len(vstr) > 0: vstr += ','
-               if n > 1: vstr += ('{:d}*'+self._fmt).format(n, val)
-               else: vstr += self._fmt.format(val)
-               val = v
-               n = 1
-         if len(vstr) > 0: vstr += ','
-         if n > 1: vstr += ('{:d}*'+self._fmt).format(n, val)
-         else: vstr += self._fmt.format(val)
-      else:
-         vstr = self._fmt.format(self.value)
-
-      return (self.name + '=' + vstr).upper()
+       return 
+#      vstr = ''
+#
+#      if hasattr(self.value, '__len__'):
+#         val = self.value[0]
+#         n = 1
+#         for v in self.value[1:]:
+#            if val == v: 
+#               n += 1
+#            else: 
+#               if len(vstr) > 0: vstr += ','
+#               if n > 1: vstr += ('{:d}*'+self._fmt).format(n, val)
+#               else: vstr += self._fmt.format(val)
+#               val = v
+#               n = 1
+#         if len(vstr) > 0: vstr += ','
+#         if n > 1: vstr += ('{:d}*'+self._fmt).format(n, val)
+#         else: vstr += self._fmt.format(val)
+#      else:
+#         vstr = self._fmt.format(self.value)
+#
+#      return (self.name + '=' + vstr).upper()
 # }}}
 
-   def _getfmt(self, dtype):
+#    def _getfmt(self, dtype, form):
 # {{{
-      if dtype is np.bool: return '.{!r}.'
-      elif dtype is np.int32: return '{:d}'
-      elif dtype is np.float32: return '{:.10g}'
-      else: assert False
+#      return '{:{width}.{prescision}f}'   
+       
+      #if dtype is np.bool: return '.{!r}.'
+      #elif dtype is np.int32: return '{:d}'
+      #elif dtype is np.float32: return '{:.10g}'
+      #else: assert False
 # }}}
 
-   def _gettype(self, value):
+    def _gettype(self, value):
 # {{{
       if hasattr(value, '__len__'): v = value[0]
       else: v = value
@@ -98,7 +106,7 @@ class Param():
       else: assert False, 'Unrecognized variable type'
 # }}}
 
-   def display(self):
+    def display(self):
 # {{{
       if self.show: return True
       if hasattr(self.value, '__len__'):
@@ -106,7 +114,7 @@ class Param():
       else: return not self.value == self.default
 # }}}
 
-   def setv(self, value):
+    def setv(self, value):
 # {{{ 
       vdtype = self._gettype(value)
       if vdtype != self.dtype:
@@ -122,7 +130,7 @@ class Param():
 
 class Namelist():
 # {{{
-   def __init__(self, name, params, pset, active=True):
+    def __init__(self, name, params, pset, active=True):
 # {{{
       self.__dict__['name'] = name
       self.__dict__['pset'] = pset
@@ -133,11 +141,12 @@ class Namelist():
          p.__dict__['pset'] = pset
          p.__dict__['_order'] = i
          pdict[p.name] = p
+          
       self.__dict__['prm_dict'] = pdict
 # }}}
 
-   @staticmethod
-   def copy(nlist, pset):
+    @staticmethod
+    def copy(nlist, pset):
 # {{{
       name = nlist.name
       active = nlist.active
@@ -152,7 +161,7 @@ class Namelist():
       return nlist.__class__(name, params, pset, active)
 # }}}
 
-   def write(self):
+    def write(self):
 # {{{
       s = '&' + self.name.upper() + '\n'
       params = self.prm_dict.values()
@@ -163,13 +172,13 @@ class Namelist():
       return s
 # }}}
 
-   def __getattr__(self, name):
+    def __getattr__(self, name):
 # {{{
       if self.prm_dict.has_key(name): return self.prm_dict[name].value
       raise AttributeError("'%s' object has no parameter '%s'" % (self.__class__.__name__, name))
 # }}}
 
-   def __setattr__(self, name, value):
+    def __setattr__(self, name, value):
 # {{{
       if self.__dict__.has_key(name): self.__dict__[name] = value
       else: self.prm_dict[name].setv(value)
@@ -178,7 +187,7 @@ class Namelist():
 
 class ParamSet():
 # {{{
-   def __init__(self, name, lists, **kwargs):
+    def __init__(self, name, lists, **kwargs):
 # {{{
       self.__dict__['_lists'] = lists
 
@@ -188,7 +197,7 @@ class ParamSet():
          self.__setattr__(k, v)
 # }}}
 
-   def __getstate__(self):
+    def __getstate__(self):
 # {{{
       dict = self.__dict__.copy()
       lists = dict.pop('_lists')
@@ -206,7 +215,7 @@ class ParamSet():
       return dict
 # }}}
 
-   def __setstate__(self, dict):
+    def __setstate__(self, dict):
 # {{{
       prm = dict.pop('_params')
       self.__dict__.update(dict)
@@ -218,8 +227,8 @@ class ParamSet():
       for k in params: self.__setattr__(k, prm[k])
 # }}}
 
-   @staticmethod
-   def copy(other):
+    @staticmethod
+    def copy(other):
 # {{{
       # Construct base copy
       cpy = other.__class__(other.name)
@@ -238,7 +247,7 @@ class ParamSet():
       return cpy
 # }}}
 
-   def write(self):
+    def write(self):
 # {{{
       s = ''
       for l in self._lists: 
@@ -246,7 +255,7 @@ class ParamSet():
       return s[:-1]
 # }}}
       
-   def __dir__(self):
+    def __dir__(self):
 # {{{
       lst = self.__dict__.keys() + dir(self.__class__)
       for l in self._lists: 
@@ -254,7 +263,7 @@ class ParamSet():
       return lst
 # }}}
 
-   def __getattr__(self, name):
+    def __getattr__(self, name):
 # {{{
       for l in self._lists:
          if l.name == name: return l
@@ -262,7 +271,7 @@ class ParamSet():
       raise AttributeError("'%s' object has no parameter '%s'" % (self.__class__.__name__, name))
 # }}}
 
-   def __setattr__(self, name, value):
+    def __setattr__(self, name, value):
 # {{{
       # Look for attribute in parameter list
       for l in [l for l in self._lists if l.active]:
@@ -279,7 +288,7 @@ class ParamSet():
 # }}}
 
    
-   def force(self, name, value):
+    def force(self, name, value):
 # {{{
       for l in self._lists:
          if l.prm_dict.has_key(name): 
@@ -288,7 +297,7 @@ class ParamSet():
       raise AttributeError("'%s' object has no parameter '%s'" % (self.__class__.__name__, name))
 # }}}
 
-   def set_name(self, name):
+    def set_name(self, name):
 # {{{
       self.__dict__['name'] = name
 # }}}
@@ -296,19 +305,19 @@ class ParamSet():
 
 class LW(ParamSet):
 # {{{
-   def __init__(self, name, NL, **kwargs):
+    def __init__(self, name, NL, **kwargs):
 # {{{  
-      lists = [lwprm(self, NL)]
+      lists = [lwrecord1_2(self)]
 
       ParamSet.__init__(self, name, lists, **kwargs)
 # }}} 
 
-   def __getinitargs__(self):
+    def __getinitargs__(self):
 # {{{
       return (self.name, self.NL)
 # }}}
 
-   def _buildetaaxes(self):
+    def _buildetaaxes(self):
 # {{{
       import igcm as ig
       import pygeode as pyg
@@ -323,7 +332,6 @@ class LW(ParamSet):
       eta = pyg.Hybrid(eta, eta - B, B)
 
       return etah, eta
-# }}}
 # }}}
 
 class SW(ParamSet):
@@ -341,28 +349,39 @@ class SW(ParamSet):
 # }}}
 # }}}
 
-def lwprm(pset, NL):
-# {{{
-   def nl_trig(v, pset): 
-      pass
 
-   return Namelist('LW', \
-      [Param('NL', 50, trigger=nl_trig, show=True), \
-       Param('temp', 250.*np.ones(NL)), \
-       Param('pres', 10**np.linspace(3., 1., NL)), \
-       Param('sfcemis', 1.)], \
-       pset)
+def lwrecord1_2(pset):
+# {{{
+    return Namelist('LW', \
+        [Param('IATM',   1, form=(49,1,0,'f')),\
+         Param('IXSECT', 0, form=(19,1,0,'f')),\
+         Param('ISCAT',  0, form=(12,1,0,'f')),\
+         Param('NUMANGS',4, form=(0,2,0,'f')),\
+         Param('IOUT',   0, form=(2,3,0,'f')),\
+         Param('ICLD',   0, form=(4,1,0,'f'))],\
+         pset)
 # }}}
+
+def lwrecord1_4(pset):
+# {{{
+    return Namelist('LW', \
+        [Param('TBOUND',   200.0, form=(0,10,3,'e')),\
+         Param('IEMIS', 0, form=(1,1,0,'f')),\
+         Param('IREFLECT',  0, form=(2,1,0,'f')),\
+         Param('SEMISS', 1, form=(0,5,3,'f')),\
+         pset)
+# }}}
+
 
 def swprm(pset, NL):
 # {{{
-   def nl_trig(v, pset): 
-      pass
+    def nl_trig(v, pset): 
+       pass
 
-   return Namelist('SW', \
-      [Param('NL', 50, trigger=nl_trig, show=True), \
-       Param('temp', 250.*np.ones(NL)), \
-       Param('pres', 10**np.linspace(3., 1., NL)), \
-       Param('albedo', 0.3)], \
-       pset)
+    return Namelist('SW', \
+       [Param('NL', 50, trigger=nl_trig, show=True), \
+        Param('temp', 250.*np.ones(NL)), \
+        Param('pres', 10**np.linspace(3., 1., NL)), \
+        Param('albedo', 0.3)], \
+        pset)
 # }}}
