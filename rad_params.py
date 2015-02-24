@@ -3,14 +3,14 @@ from os.path import expanduser
 
 class Param():
 # {{{
-    def __init__(self, name, default, form=None, dtype=None, trigger=None, show=False):
+    def __init__(self, name, default, form=None, dtype=None, trig=None, show=False):
 # {{{
       self.name = name
       self.default = default
       self.form = form
-      self.trigger = trigger
+      self.trig = trig
       self.show=show
-      if hasattr(default, '__len__'):
+      if (hasattr(default, '__len__') and type(default) is not str):
          self.value = default.copy()
       else: 
          self.value = default
@@ -19,7 +19,7 @@ class Param():
       else: self.dtype = dtype
         
          
-      assert self.dtype in [np.int32, np.float32, np.a1]
+      assert self.dtype in [np.int32, np.float32, np.str]
       self._fmt = form
 # }}}   
 
@@ -58,32 +58,7 @@ class Param():
 
     def write(self):
 # {{{
-        
-        return
-
-
-
-#      vstr = ''
-#
-#      if hasattr(self.value, '__len__'):
-#         val = self.value[0]
-#         n = 1
-#         for v in self.value[1:]:
-#            if val == v: 
-#               n += 1
-#            else: 
-#               if len(vstr) > 0: vstr += ','
-#               if n > 1: vstr += ('{:d}*'+self._fmt).format(n, val)
-#               else: vstr += self._fmt.format(val)
-#               val = v
-#               n = 1
-#         if len(vstr) > 0: vstr += ','
-#         if n > 1: vstr += ('{:d}*'+self._fmt).format(n, val)
-#         else: vstr += self._fmt.format(val)
-#      else:
-#         vstr = self._fmt.format(self.value)
-#
-#      return (self.name + '=' + vstr).upper()
+        return self._fmt.format(self.value)
 # }}}
 
 #    def _getfmt(self, dtype, form):
@@ -98,12 +73,13 @@ class Param():
 
     def _gettype(self, value):
 # {{{
-      if hasattr(value, '__len__'): v = value[0]
+      if (hasattr(value, '__len__') and type(value) is not str): v = value[0]
       else: v = value
          
       if type(v) is int: return np.int32
       elif type(v) is bool: return np.bool
       elif np.isreal(v): return np.float32
+      elif type(v) is str: return np.str
       else: assert False, 'Unrecognized variable type'
 # }}}
 
@@ -164,12 +140,12 @@ class Namelist():
 
     def write(self):
 # {{{
-      s = '&' + self.name.upper() + '\n'
+      s = '$' + '\n'
       params = self.prm_dict.values()
       params.sort(key=lambda p:p._order)
       for p in params:
          if p.display(): s += p.write() + '\n'
-      s += '&END\n'
+      s += '%\n'
       return s
 # }}}
 
@@ -252,7 +228,7 @@ class ParamSet():
 # {{{
       s = ''
       for l in self._lists: 
-         if l.active: s += l.write() + '\n'
+         s += l.write() + '\n'
       return s[:-1]
 # }}}
       
@@ -288,7 +264,6 @@ class ParamSet():
          raise AttributeError("'%s' object has no parameter '%s'" % (self.__class__.__name__, name))
 # }}}
 
-   
     def force(self, name, value):
 # {{{
       for l in self._lists:
@@ -308,7 +283,8 @@ class LW(ParamSet):
 # {{{
     def __init__(self, name, NL, **kwargs):
 # {{{  
-      lists = [lwrecord1_2(self)]
+      lists = [lwrecord1_2(self),lwrecord1_4(self),lwrecord3_1(self),lwrecord3_2(self),\
+               lwrecord3_3B1(self,NL),lwrecord3_4(self,NL),lwrecord3_5(self),lwrecord3_6(self,NL)]\
 
       ParamSet.__init__(self, name, lists, **kwargs)
 # }}} 
@@ -355,12 +331,12 @@ class SW(ParamSet):
 def lwrecord1_2(pset):
 # {{{
     return Namelist('lwrecord1_2', \
-        [Param('IATM',   1, form='{:>50d}',\
+        [Param('IATM',   1, form='{:>50d}'),\
          Param('IXSECT', 0, form='{:>20d}'),\
          Param('ISCAT',  0, form='{:>13d}'),\
-         Param('NUMANGS',4, form='{:>2d}',\
-         Param('IOUT',   0, form='{:>5d}',\
-         Param('ICLD',   0, form='{:>5d}'],\
+         Param('NUMANGS',4, form='{:>2d}'),\
+         Param('IOUT',   0, form='{:>5d}'),\
+         Param('ICLD',   0, form='{:>5d}')],\
          pset)
 # }}}
 
@@ -370,7 +346,7 @@ def lwrecord1_4(pset):
         [Param('TBOUND',    200.0,  form='{:>10.3e}'),\
          Param('IEMIS',     0,      form='{:>2d}'),\
          Param('IREFLECT',  0,      form='{:>3d}'),\
-         Param('SEMISS',    1,      form='{:>5.3e}'),\
+         Param('SEMISS',    1,      form='{:>5.3e}')],\
          pset)
 # }}}
 
@@ -422,7 +398,7 @@ def lwrecord3_2(pset):
        
     return Namelist('lwrecord3_2', \
         [Param('HBOUND',    0.0,form='{:>10.3f}'), \
-         Param('HTOA',      0.0,form='{:>10.3f}'),  trig=frm_trig],\
+         Param('HTOA',      0.0,form='{:>10.3f}', trig=frm_trig)],\
          pset)
 # }}}
 
@@ -453,23 +429,23 @@ def lwrecord3_3A(pset):
             Param('TDIFF2',     0,  form='{:>10.3f}'),\
             Param('ALTD1',      0,  form='{:>10.3f}'),\
             Param('ALTD1',      0,  form='{:>10.3d}')],\
-            pset, show=TRUE)
+            pset, active=True)
 # }}}
 
 def lwrecord3_3B1(pset,NL):
 #{{{
     #IATM=1 and IBMAX > 0
     return Namelist('lwrecord3_3B1', \
-           [Param('ZBND', np.zeros(NL-1, 'd'), form='{:>10.3f}', trig=col_trig)], \
-            pset, show=FALSE)
+           [Param('ZBND', np.zeros(NL-1, 'd'), form='{:>10.3f}')], \
+            pset, active=False)
 # }}}
 
-def lwrecord3_3B2(pset):
+def lwrecord3_3B2(pset,NL):
 # {{{
     #IATM=1 and IBMAX < 0
     return Namelist('lwrecord3_3B2', \
-           [Param('PBND', np.zeros(NL-1, 'd'), form='{:>10.3f}', trig=col_trig)], \
-            pset, show=FALSE)
+           [Param('PBND', np.zeros(NL-1, 'd'), form='{:>10.3f}')], \
+            pset, active=False)
 
 # }}}
 
@@ -483,7 +459,7 @@ def lwrecord3_4(pset,NL):
          pset)
 # }}}
 
-def lwrecord3_5(pset,NL):
+def lwrecord3_5(pset):
 # {{{
     #IATM=1 and model =0 
 
@@ -503,41 +479,41 @@ def lwrecord3_6(pset,NL):
 
     return Namelist('lwrecord3_6', \
             [Param('VMOLH2O', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLCO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLO3', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLN2O', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLCO', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLCH4', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLNO', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLSO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLNO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLNH3', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHNO3', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLOH', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHF', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHCL', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHBR', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHI', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLCLO', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLOCS', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLH2CO', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHOCL', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLN2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHCN', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLCH3CL', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLH2O2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLC2H2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLC2H6', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLPH3', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLCOF2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLSF6', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLH2S', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLHCOOH', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            [Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}')], \
-        Param('HMOD',   '', form='{:24s}')],\
+            Param('VMOLCO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLO3', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLN2O', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLCO', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLCH4', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLNO', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLSO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLNO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLNH3', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHNO3', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLOH', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHF', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHCL', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHBR', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHI', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLCLO', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLOCS', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLH2CO', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHOCL', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLN2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHCN', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLCH3CL', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLH2O2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLC2H2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLC2H6', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLPH3', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLCOF2', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLSF6', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLH2S', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLHCOOH', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            Param('HMOD',   '', form='{:24s}')],\
          pset)
 # }}}
 
