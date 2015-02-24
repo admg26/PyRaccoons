@@ -20,9 +20,7 @@ class Param():
         
          
       assert self.dtype in [np.int32, np.float32, np.a1]
-      fmt_spec = '{:>{width}.{precision}{notation}}'
-      self._fmt = fmt_spec.format(self.value,width=form[0]+form[1],\
-                  precision=form[2], notation = form[3])
+      self._fmt = form
 # }}}   
 
     @staticmethod
@@ -353,47 +351,114 @@ class SW(ParamSet):
 
 def lwrecord1_2(pset):
 # {{{
-    return Namelist('LW', \
-        [Param('IATM',   1, form='{:>50.0d}'
-        19.50
-        (49,1,0,'d')),\
-         Param('IXSECT', 0, form=(19,1,0,'f')),\
-         Param('ISCAT',  0, form=(12,1,0,'f')),\
-         Param('NUMANGS',4, form=(0,2,0,'f')),\
-         Param('IOUT',   0, form=(2,3,0,'f')),\
-         Param('ICLD',   0, form=(4,1,0,'f'))],\
+    return Namelist('lwrecord1_2', \
+        [Param('IATM',   1, form='{:>50d}',\
+         Param('IXSECT', 0, form='{:>20d}'),\
+         Param('ISCAT',  0, form='{:>13d}'),\
+         Param('NUMANGS',4, form='{:>2d}',\
+         Param('IOUT',   0, form='{:>5d}',\
+         Param('ICLD',   0, form='{:>5d}'],\
          pset)
 # }}}
 
 def lwrecord1_4(pset):
 # {{{
-    return Namelist('LW', \
-        [Param('TBOUND',   200.0, form=(0,10,3,'e')),\
-         Param('IEMIS', 0, form=(1,1,0,'f')),\
-         Param('IREFLECT',  0, form=(2,1,0,'f')),\
-         Param('SEMISS', 1, form=(0,5,3,'f')),\
+    return Namelist('lwrecord1_4', \
+        [Param('TBOUND',    200.0,  form='{:>10.3e}'),\
+         Param('IEMIS',     0,      form='{:>2d}'),\
+         Param('IREFLECT',  0,      form='{:>3d}'),\
+         Param('SEMISS',    1,      form='{:>5.3e}'),\
          pset)
 # }}}
 
 def lwrecord2_1(pset, NL):
 # {{{
-   def frm_trig(v, pset):
-      if v == 0:
-         pset.PAVE._fmt = '{:>10.4f}'
-      elif v == 1:
-         pset.PAVE._fmt = '{:>15.7e}'
-      else:
-         pset.force('PAVE', 0)
-         raise ValueError('Only accepted values for IFORM are 0 and 1; setting to 0.')
+    #Not complete. We do not need this right now since IATM=1
+    def frm_trig(v, pset):
+        if v == 0:
+            pset.PAVE._fmt = '{:>10.4f}'
+        elif v == 1:
+            pset.PAVE._fmt = '{:>15.7e}'
+        else:
+            pset.force('PAVE', 0)
+            raise ValueError('Only accepted values for IFORM are 0 and 1; setting to 0.')
          
-    return Namelist('LW', \
-        [Param('IFORM',  0, form='{:>2d}', trig=frm_trig), \
-         Param('NLAYRS', NL, form='{:>3d}'),\
-         Param('NMOL', 7, form='{:>5d}'),\
-         Param('PAVE', np.zeros(NL, 'd'), form='{:>10.4f}')],\
+    return Namelist('lwrecord2_1', \
+        [Param('IFORM',     0,  form='{:>2d}', trig=frm_trig), \
+         Param('NLAYRS',    NL, form='{:>3d}'),\
+         Param('NMOL',      7,  form='{:>5d}'),\
+         Param('PAVE',      np.zeros(NL, 'd'), form='{:>10.4f}')],\
          pset)
 # }}}
 
+def lwrecord3_1(pset):
+    #IATM=1
+
+    return Namelist('lwrecord3_1', \
+        [Param('MODEL',     0,  form='{:>5d}'), \
+         Param('IBMAX',     0,  form='{:>10d}'),\
+         Param('NOPRNT',    0,  form='{:>10d}'),\
+         Param('NMOL',      7,  form='{:>5f}'),\
+         Param('IPUNCH',    0,  form='{:>5d}'),\
+         Param('MUNITS',    0,  form='{:>5d}'),\
+         Param('RE',        0,  form='{:>10.3f}'),\
+         Param('CO2MX',     0,  form='{:>30.3f}'),\
+         Param('REF_LAT',   0.0,form='{:>10.3f}')],\
+         pset)
+# }}}
+
+def lwrecord3_2(pset):
+   #IATM=1
+    def frm_trig(v, pset):
+        if (pset.IBMAX > 0 and v < pset.HBOUND):
+            raise ValueError('Layer values in km. Top of the atmosphere must be higher than the surface')
+        elif (pset.IBMAX < 0 and v > pset.HBOUND):
+            raise ValueError('Layer values in mb. Top of the atmosphere must be higher than the surface')
+       
+    return Namelist('lwrecord3_2', \
+        [Param('HBOUND',    0.0,form='{:>10.3f}'), \
+         Param('HTOA',      0.0,form='{:>10.3f}'),  trig=frm_trig],\
+         pset)
+# }}}
+
+def lwrecord3_2(pset):
+    #IATM=1
+    def col_trig(v,pset):
+        form = ''
+
+        if len(v) < 8:
+            for i in range(len(v)): 
+                form += '{i_order:>10.3f}' 
+                pset.ZBND._fmt = form
+        else:
+            nrows = int(math.ceil((len(v))/8.0))
+            for j in range(nrows):
+                if j == nrows-1:
+                    row_l = 8
+                else:
+                    row_l = len(v)-8.0*(nrows-1)
+                for i in range(row_l): 
+                    form += '{i_order:>10.3f}' 
+                form += '\n'        
+
+    if pset.IBMAX == 0:
+        return Namelist('lwrecord3_2', \
+           [Param('AVTRAT',     0,  form='{:>10.3f}'), \
+            Param('TDIFF1',     0,  form='{:>10.3f}'),\
+            Param('TDIFF2',     0,  form='{:>10.3f}'),\
+            Param('ALTD1',      0,  form='{:>10.3f}'),\
+            Param('ALTD1',      0,  form='{:>10.3d}')],\
+            pset)
+    elif pset.IBMAX > 0:
+        return Namelist('lwrecord3_2', \
+           [Param('ZBND',     np.zeros(NL-1, 'd'),  form='{:>10.3f}', trig=col_trig)], \
+            pset)
+    elif pset.IBMAX < 0:
+        return Namelist('lwrecord3_2', \
+           [Param('PBND',     np.zeros(NL-1, 'd'),  form='{:>10.3f}', trig=col_trig)], \
+            pset)
+
+# }}}
 
 def swprm(pset, NL):
 # {{{
