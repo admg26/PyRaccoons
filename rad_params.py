@@ -56,11 +56,9 @@ class Param():
       return '<Param: %s = %s>' % (self.name.upper(), vstr.upper())
 # }}} 
 
-    def write(self, array = False, cols8 = False):
+    def write(self, cols8 = False, plevel=None):
 # {{{
-        if (array):
-            return self._fmt.format(*self.value.tolist())
-        elif (cols8):
+        if (cols8):
             new_fmt = ''
             
             if len(self.value) < 8:
@@ -77,14 +75,16 @@ class Param():
                         new_fmt += '{:>10.3f}' 
                     if j != nrows: new_fmt += '\n'
             return new_fmt.format(*self.value.tolist())     
-        else:    
+        elif (plevel):
+            return self._fmt.format(self.value[plevel])
+        else:
             return self._fmt.format(self.value)
 # }}}
 
     def write_default(self):
 # {{{
         import re
-        width = re.findall(":<(\d+).",fmt)
+        width = re.findall(":>(\d+).",self._fmt)
         return '{:>{w}}'.format(' ',w=width)                
 # }}}
 
@@ -165,16 +165,25 @@ class Namelist():
       return nlist.__class__(name, params, pset, active)
 # }}}
 
-    def write(self, array = False, cols8 = True):
+    def write(self, NL, array = False, cols8 = True):
 # {{{
       s = ''
       params = self.prm_dict.values()
       params.sort(key=lambda p:p._order)
-      for p in params:
-         if p.display():
-             s += p.write(array, cols8) 
-         else:
-             s += p.write_default() 
+      
+      if (array):
+          for i in range(NL):
+              for p in params:
+                  if p.display():
+                      s += p.write(cols8,i)
+                  else:
+                      s += p.write_default() 
+      else:
+        for p in params:
+            if p.display():
+                s += p.write(cols8)
+            else:
+                s += p.write_default() 
       return s
 # }}}
 
@@ -351,11 +360,11 @@ class LW(ParamSet):
         for l in self._lists:
             if l.name == ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
                     'lwrecord3_2','lwrecord3_3A','lwrecord3_4','lwrecord3_5']:
-                s += l.write()
+                s += l.write(self.NL)
             elif l.name == ['lwrecord3_3B1','lwrecord3_3B2']:
-                s += l.write(cols8 = True) 
+                s += l.write(self.NL,cols8 = True) 
             elif l.name == ['lwrecord3_6']:
-                s += l.write(array = True) 
+                s += l.write(self.NL,array = True) 
         return s
 # }}}
 
