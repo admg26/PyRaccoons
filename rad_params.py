@@ -171,7 +171,7 @@ class Namelist():
       params = self.prm_dict.values()
       params.sort(key=lambda p:p._order)
       
-      if (array):
+      if array:
           for i in range(nlevel):
               for p in params:
                   if p.display():
@@ -356,12 +356,67 @@ class LW(ParamSet):
 # }}}
     def write(self):
 # {{{        
+    def write8(list):
+# {{{
+# }}}
         s = ''
         for l in self._lists:
             if l.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
                     'lwrecord3_2','lwrecord3_3A','lwrecord3_4','lwrecord3_5']:
                 s += l.write()
             elif l.name in ['lwrecord3_3B1','lwrecord3_3B2']:
+      s = ''
+      params = self.prm_dict.values()
+      params.sort(key=lambda p:p._order)
+      
+      if array:
+          for i in range(nlevel):
+              for p in params:
+                  if p.display():
+                      s += p.write(cols8, i)
+                  else:
+                      s += p.write_default() 
+      else:
+         self.NLAYRS
+         s = ''
+         for i in range(self.NLAYERS):
+            s += self.ZBND._fmt.format(self.ZBND[i])
+            if i % 8 == 7: s += '\n'
+
+         self.NLAYRS
+         s = ''
+         mol = [self.CO2, self.H20, self.O3]
+         rowformat = np.sum([m._fmt for m in a])
+         for i in range(self.NLAYERS):
+            s += rowformat.format(*[m[i] for m in listofmolecules])
+            
+            s += self.ZBND._fmt.format(self.ZBND[i])
+            if i % 8 == 7: s += '\n'
+            
+         self.
+
+        for p in params:
+            if p.display():
+                s += p.write(cols8)
+            new_fmt = ''
+            
+            if len(self.value) < 8:
+                for i in range(len(self.value)): 
+                    new_fmt += '{:>10.3f}' 
+            else:
+                nrows = int(math.ceil((len(self.value))/8.0))
+                for j in range(nrows):
+                    if j == nrows-1:
+                        row_l = 8
+                    else:
+                        row_l = len(self.value)-8.0*(nrows-1)
+                    for i in range(row_l): 
+                        new_fmt += '{:>10.3f}' 
+                    if j != nrows: new_fmt += '\n'
+            return new_fmt.format(*self.value.tolist())     
+            else:
+                s += p.write_default() 
+      return s
                 s += l.write(cols8 = True) 
             elif l.name in ['lwrecord3_6']:
                 s += l.write(nlevel = self.IMMAX, array = True) 
@@ -469,7 +524,7 @@ def lwrecord3_3A(pset):
             Param('ALTD1',      0,  form='{:>10.3f}', show=True),\
             Param('ALTD1',      0,  form='{:>10.3d}', show=True)],\
             pset, active=True)
-# }}}
+# }}} 
 
 def lwrecord3_3B1(pset,NL):
 #{{{
