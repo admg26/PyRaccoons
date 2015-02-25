@@ -56,9 +56,36 @@ class Param():
       return '<Param: %s = %s>' % (self.name.upper(), vstr.upper())
 # }}} 
 
-    def write(self):
+    def write(self, array = False, cols8 = False):
 # {{{
-        return self._fmt.format(self.value)
+        if (array):
+            return self._fmt.format(*self.value.tolist())
+        elif (cols8):
+            new_fmt = ''
+            
+            if len(self.value) < 8:
+                for i in range(len(v)): 
+                    new_fmt += '{:>10.3f}' 
+            else:
+                nrows = int(math.ceil((len(self.value))/8.0))
+                for j in range(nrows):
+                    if j == nrows-1:
+                        row_l = 8
+                    else:
+                        row_l = len(v)-8.0*(nrows-1)
+                    for i in range(row_l): 
+                        new_fmt += '{:>10.3f}' 
+                    if j != nrows: new_fmt += '\n'
+            return new_fmt.format(*self.value.tolist())     
+        else:    
+            return self._fmt.format(self.value)
+# }}}
+
+    def write_default(self):
+# {{{
+        import re
+        width = re.findall(":<(\d+).",fmt)
+        return '{:>{w}}'.format(' ',w=width)                
 # }}}
 
 #    def _getfmt(self, dtype, form):
@@ -86,7 +113,7 @@ class Param():
     def display(self):
 # {{{
       if self.show: return True
-      if hasattr(self.value, '__len__'):
+      if (hasattr(self.value, '__len__') and type(self.value) is not str):
          return not (self.value == self.default).all()
       else: return not self.value == self.default
 # }}}
@@ -138,14 +165,16 @@ class Namelist():
       return nlist.__class__(name, params, pset, active)
 # }}}
 
-    def write(self):
+    def write(self, array = False, cols8 = True):
 # {{{
-      s = '$' + '\n'
+      s = ''
       params = self.prm_dict.values()
       params.sort(key=lambda p:p._order)
       for p in params:
-         if p.display(): s += p.write() + '\n'
-      s += '%\n'
+         if p.display():
+             s += p.write(array, cols8) 
+         else:
+             s += p.write_default() 
       return s
 # }}}
 
@@ -159,6 +188,11 @@ class Namelist():
 # {{{
       if self.__dict__.has_key(name): self.__dict__[name] = value
       else: self.prm_dict[name].setv(value)
+# }}}
+    def __getitem__(self, name):
+# {{{
+      if self.prm_dict.has_key(name): return self.prm_dict[name]
+      raise AttributeError("'%s' object has no parameter '%s'" % (self.__class__.__name__, name))
 # }}}
 # }}}
 
@@ -224,20 +258,21 @@ class ParamSet():
       return cpy
 # }}}
 
-    def write(self):
+    def write(self, array = False, cols8 = False):
 # {{{
       s = ''
-      for l in self._lists: 
-         s += l.write() + '\n'
+      for l in self._lists:
+        s += l.write(array,cols8) + '\n'
+
       return s[:-1]
 # }}}
-      
+
     def __dir__(self):
 # {{{
-      lst = self.__dict__.keys() + dir(self.__class__)
-      for l in self._lists: 
-         if l.active: lst += l.prm_dict.keys()
-      return lst
+        lst = self.__dict__.keys() + dir(self.__class__)
+        for l in self._lists: 
+            if l.active: lst += l.prm_dict.keys()
+        return lst
 # }}}
 
     def __getattr__(self, name):
@@ -310,6 +345,18 @@ class LW(ParamSet):
 
       return etah, eta
 # }}}
+    def write(self):
+# {{{        
+        s = ''
+        for l in self._lists:
+            if l.name == ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
+                    'lwrecord3_2','lwrecord3_3A','lwrecord3_4','lwrecord3_5']:
+                s += l.write()
+            elif l.name == ['lwrecord3_3B1','lwrecord3_3B2']:
+                s += l.write(cols8 = True) 
+            elif l.name == ['lwrecord3_6']:
+                s += l.write(array = True) 
+        return s
 # }}}
 
 class SW(ParamSet):
@@ -327,26 +374,25 @@ class SW(ParamSet):
 # }}}
 # }}}
 
-
 def lwrecord1_2(pset):
 # {{{
     return Namelist('lwrecord1_2', \
-        [Param('IATM',   1, form='{:>50d}'),\
-         Param('IXSECT', 0, form='{:>20d}'),\
-         Param('ISCAT',  0, form='{:>13d}'),\
-         Param('NUMANGS',4, form='{:>2d}'),\
-         Param('IOUT',   0, form='{:>5d}'),\
-         Param('ICLD',   0, form='{:>5d}')],\
+        [Param('IATM',   1, form='{:>50d}',show=True),\
+         Param('IXSECT', 0, form='{:>20d}',show=True),\
+         Param('ISCAT',  0, form='{:>13d}',show=True),\
+         Param('NUMANGS',4, form='{:>2d}',show=True),\
+         Param('IOUT',   0, form='{:>5d}',show=True),\
+         Param('ICLD',   0, form='{:>5d}',show=True)],\
          pset)
 # }}}
 
 def lwrecord1_4(pset):
 # {{{
     return Namelist('lwrecord1_4', \
-        [Param('TBOUND',    200.0,  form='{:>10.3e}'),\
-         Param('IEMIS',     0,      form='{:>2d}'),\
-         Param('IREFLECT',  0,      form='{:>3d}'),\
-         Param('SEMISS',    1,      form='{:>5.3e}')],\
+        [Param('TBOUND',    200.0,  form='{:>10.3e}',show=True),\
+         Param('IEMIS',     0,      form='{:>2d}',show=True),\
+         Param('IREFLECT',  0,      form='{:>3d}',show=True),\
+         Param('SEMISS',    1,      form='{:>5.3e}',show=True)],\
          pset)
 # }}}
 
@@ -375,15 +421,15 @@ def lwrecord3_1(pset):
     #IATM=1
 
     return Namelist('lwrecord3_1', \
-        [Param('MODEL',     0,  form='{:>5d}'), \
-         Param('IBMAX',     0,  form='{:>10d}'),\
-         Param('NOPRNT',    0,  form='{:>10d}'),\
-         Param('NMOL',      7,  form='{:>5f}'),\
-         Param('IPUNCH',    0,  form='{:>5d}'),\
-         Param('MUNITS',    0,  form='{:>5d}'),\
-         Param('RE',        0,  form='{:>10.3f}'),\
-         Param('CO2MX',     0,  form='{:>30.3f}'),\
-         Param('REF_LAT',   0.0,form='{:>10.3f}')],\
+        [Param('MODEL',     0,  form='{:>5d}',show=True), \
+         Param('IBMAX',     0,  form='{:>10d}',show=True),\
+         Param('NOPRNT',    0,  form='{:>10d}',show=True),\
+         Param('NMOL',      7,  form='{:>5f}',show=True),\
+         Param('IPUNCH',    0,  form='{:>5d}',show=True),\
+         Param('MUNITS',    0,  form='{:>5d}',show=True),\
+         Param('RE',        0,  form='{:>10.3f}',show=True),\
+         Param('CO2MX',     0,  form='{:>30.3f}',show=True),\
+         Param('REF_LAT',   0.0,form='{:>10.3f}',show=True)],\
          pset)
 # }}}
 
@@ -397,8 +443,8 @@ def lwrecord3_2(pset):
             raise ValueError('Layer values in mb. Top of the atmosphere must be higher than the surface')
        
     return Namelist('lwrecord3_2', \
-        [Param('HBOUND',    0.0,form='{:>10.3f}'), \
-         Param('HTOA',      0.0,form='{:>10.3f}', trig=frm_trig)],\
+        [Param('HBOUND',    0.0,form='{:>10.3f}', show=True), \
+         Param('HTOA',      0.0,form='{:>10.3f}', trig=frm_trig, show=True)],\
          pset)
 # }}}
 
@@ -406,29 +452,13 @@ def lwrecord3_3A(pset):
 # {{{
     #IATM=1
 #    def col_trig(v,pset):
-#        form = ''
-#
-#        if len(v) < 8:
-#            for i in range(len(v)): 
-#                form += '{i_order:>10.3f}' 
-#                pset.ZBND._fmt = form
-#        else:
-#            nrows = int(math.ceil((len(v))/8.0))
-#            for j in range(nrows):
-#                if j == nrows-1:
-#                    row_l = 8
-#                else:
-#                    row_l = len(v)-8.0*(nrows-1)
-#                for i in range(row_l): 
-#                    form += '{i_order:>10.3f}' 
-#                form += '\n'        
 
     return Namelist('lwrecord3_3A', \
-           [Param('AVTRAT',     0,  form='{:>10.3f}'), \
-            Param('TDIFF1',     0,  form='{:>10.3f}'),\
-            Param('TDIFF2',     0,  form='{:>10.3f}'),\
-            Param('ALTD1',      0,  form='{:>10.3f}'),\
-            Param('ALTD1',      0,  form='{:>10.3d}')],\
+           [Param('AVTRAT',     0,  form='{:>10.3f}', show=True), \
+            Param('TDIFF1',     0,  form='{:>10.3f}', show=True),\
+            Param('TDIFF2',     0,  form='{:>10.3f}', show=True),\
+            Param('ALTD1',      0,  form='{:>10.3f}', show=True),\
+            Param('ALTD1',      0,  form='{:>10.3d}', show=True)],\
             pset, active=True)
 # }}}
 
@@ -436,7 +466,7 @@ def lwrecord3_3B1(pset,NL):
 #{{{
     #IATM=1 and IBMAX > 0
     return Namelist('lwrecord3_3B1', \
-           [Param('ZBND', np.zeros(NL-1, 'd'), form='{:>10.3f}')], \
+           [Param('ZBND', np.zeros(NL-1, 'd'), form='{:>10.3f}', show=True)], \
             pset, active=False)
 # }}}
 
@@ -444,7 +474,7 @@ def lwrecord3_3B2(pset,NL):
 # {{{
     #IATM=1 and IBMAX < 0
     return Namelist('lwrecord3_3B2', \
-           [Param('PBND', np.zeros(NL-1, 'd'), form='{:>10.3f}')], \
+           [Param('PBND', np.zeros(NL-1, 'd'), form='{:>10.3f}', show=True)], \
             pset, active=False)
 
 # }}}
@@ -454,8 +484,8 @@ def lwrecord3_4(pset,NL):
     #IATM=1 and model =0 
 
     return Namelist('lwrecord3_4', \
-        [Param('IMMAX', NL, form='{:>5d}'), \
-        Param('HMOD',   '', form='{:24s}')],\
+        [Param('IMMAX', NL, form='{:>5d}', show=True), \
+        Param('HMOD',   '', form='{:24s}', show=True)],\
          pset)
 # }}}
 
@@ -464,12 +494,12 @@ def lwrecord3_5(pset):
     #IATM=1 and model =0 
 
     return Namelist('lwrecord3_5', \
-        [Param('ZM',    0,  form='{:>10.3e}'), \
-        Param('PM',     0,  form='{:>10.3e}'), \
-        Param('TM',     200,form='{:>10.3e}'), \
-        Param('JCHARP', 'A',form='{:>6s}'), \
-        Param('JCHART', 'A', form='{:>s}'), \
-        Param('JCHAR',  'AAA6666', form='{:>31s}')], \
+        [Param('ZM',    0,  form='{:>10.3e}',   show=True), \
+        Param('PM',     0,  form='{:>10.3e}',   show=True), \
+        Param('TM',     200,form='{:>10.3e}',   show=True), \
+        Param('JCHARP', 'A',form='{:>6s}',      show=True), \
+        Param('JCHART', 'A', form='{:>s}',      show=True), \
+        Param('JCHAR',  'AAA6666', form='{:>31s}', show=True)], \
          pset)
 # }}}
 
@@ -478,9 +508,9 @@ def lwrecord3_6(pset,NL):
     #IATM=1 and model =0 
 
     return Namelist('lwrecord3_6', \
-            [Param('VMOLH2O', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            Param('VMOLCO2', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            Param('VMOLO3', np.zeros(NL,'d'), form='{:>10.3e}'), \
+            [Param('VMOLH2O', np.zeros(NL,'d'), form='{:>10.3e}', show=True), \
+            Param('VMOLCO2', np.zeros(NL,'d'), form='{:>10.3e}', show=True), \
+            Param('VMOLO3', np.zeros(NL,'d'), form='{:>10.3e}', show=True), \
             Param('VMOLN2O', np.zeros(NL,'d'), form='{:>10.3e}'), \
             Param('VMOLCO', np.zeros(NL,'d'), form='{:>10.3e}'), \
             Param('VMOLCH4', np.zeros(NL,'d'), form='{:>10.3e}'), \
@@ -512,8 +542,7 @@ def lwrecord3_6(pset,NL):
             Param('VMOLHCOOH', np.zeros(NL,'d'), form='{:>10.3e}'), \
             Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
             Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}'), \
-            Param('HMOD',   '', form='{:24s}')],\
+            Param('VMOLEMPTY', np.zeros(NL,'d'), form='{:>10.3e}')], \
          pset)
 # }}}
 
