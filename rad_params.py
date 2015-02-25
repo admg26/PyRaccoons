@@ -56,13 +56,13 @@ class Param():
       return '<Param: %s = %s>' % (self.name.upper(), vstr.upper())
 # }}} 
 
-    def write(self, cols8 = False, plevel=None):
+    def write(self, cols8 = False, nlevel=None):
 # {{{
         if (cols8):
             new_fmt = ''
             
             if len(self.value) < 8:
-                for i in range(len(v)): 
+                for i in range(len(self.value)): 
                     new_fmt += '{:>10.3f}' 
             else:
                 nrows = int(math.ceil((len(self.value))/8.0))
@@ -70,13 +70,13 @@ class Param():
                     if j == nrows-1:
                         row_l = 8
                     else:
-                        row_l = len(v)-8.0*(nrows-1)
+                        row_l = len(self.value)-8.0*(nrows-1)
                     for i in range(row_l): 
                         new_fmt += '{:>10.3f}' 
                     if j != nrows: new_fmt += '\n'
             return new_fmt.format(*self.value.tolist())     
-        elif (plevel):
-            return self._fmt.format(self.value[plevel])
+        elif nlevel is not None:
+            return self._fmt.format(self.value[nlevel])
         else:
             return self._fmt.format(self.value)
 # }}}
@@ -84,7 +84,7 @@ class Param():
     def write_default(self):
 # {{{
         import re
-        width = re.findall(":>(\d+).",self._fmt)
+        width = int(re.findall(":>(\d+).",self._fmt)[0])
         return '{:>{w}}'.format(' ',w=width)                
 # }}}
 
@@ -165,17 +165,17 @@ class Namelist():
       return nlist.__class__(name, params, pset, active)
 # }}}
 
-    def write(self, NL, array = False, cols8 = True):
+    def write(self, nlevel = None, array = False, cols8 = False):
 # {{{
       s = ''
       params = self.prm_dict.values()
       params.sort(key=lambda p:p._order)
       
       if (array):
-          for i in range(NL):
+          for i in range(nlevel):
               for p in params:
                   if p.display():
-                      s += p.write(cols8,i)
+                      s += p.write(cols8, i)
                   else:
                       s += p.write_default() 
       else:
@@ -358,13 +358,13 @@ class LW(ParamSet):
 # {{{        
         s = ''
         for l in self._lists:
-            if l.name == ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
+            if l.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
                     'lwrecord3_2','lwrecord3_3A','lwrecord3_4','lwrecord3_5']:
-                s += l.write(self.NL)
-            elif l.name == ['lwrecord3_3B1','lwrecord3_3B2']:
-                s += l.write(self.NL,cols8 = True) 
-            elif l.name == ['lwrecord3_6']:
-                s += l.write(self.NL,array = True) 
+                s += l.write()
+            elif l.name in ['lwrecord3_3B1','lwrecord3_3B2']:
+                s += l.write(cols8 = True) 
+            elif l.name in ['lwrecord3_6']:
+                s += l.write(nlevel = self.IMMAX, array = True) 
         return s
 # }}}
 
