@@ -162,9 +162,7 @@ class ParamSet():
     def __init__(self, name, lists, **kwargs):
       # {{{
       self.__dict__['_lists'] = lists
-
       self.set_name(name)
-
       for k, v in kwargs.iteritems():
         self.__setattr__(k, v)
 # }}}
@@ -279,10 +277,15 @@ class LW(ParamSet):
   # {{{
     def __init__(self, name, NL, **kwargs):
       # {{{  
+      lw3_6 = lwrecord3_6(self,NL)
+      lw3_6_ordered = lw3_6.prm_dict.values()
+      lw3_6_ordered.sort(key=lambda p:p._order)
+
       lists = [lwrecord1_2(self),lwrecord1_4(self),lwrecord3_1(self),lwrecord3_2(self),\
-          lwrecord3_3B1(self,NL),lwrecord3_4(self,NL),lwrecord3_5(self),lwrecord3_6(self,NL)]\
+          lwrecord3_3B1(self,NL),lwrecord3_4(self,NL),lwrecord3_5(self),lwrecord3_6(self,NL)]
 
       ParamSet.__init__(self, name, lists, **kwargs)
+      self.__dict__['lw3_6ordered'] = lw3_6_ordered
 # }}} 
 
     def __getinitargs__(self):
@@ -327,10 +330,9 @@ class LW(ParamSet):
             if i % 8 == 7: s += '\n'
 
         elif l.name in ['lwrecord3_6']:
-          params = l.prm_dict.values()
-          params.sort(key=lambda p:p._order)
-
           rowfmt = '' 
+          params = l.prm_dict.values()
+          params = self.lw3_6ordered
           for p in params[:self.NMOL]:
             if p.display(): 
               rowfmt += p._fmt
@@ -361,10 +363,8 @@ class SW(ParamSet):
 
 def lwrecord1_2(pset):
   # {{{
-    def ftrig(v,pset):
-        print 'aa:w',v
     return Namelist('lwrecord1_2', \
-        [Param('IATM',   1, form='{:>50d}',show=True, trig = ftrig),\
+        [Param('IATM',   1, form='{:>50d}',show=True),\
         Param('IXSECT', 0, form='{:>20d}',show=True),\
         Param('ISCAT',  0, form='{:>13d}',show=True),\
         Param('NUMANGS',4, form='{:>2d}',show=True),\
@@ -479,6 +479,22 @@ def lwrecord3_4(pset,NL):
 def lwrecord3_5(pset):
   # {{{
     #IATM=1 and model =0 
+    def show_trig(v,pset):
+        if len(v) != pset.NMOL:
+          raise ValueError("Flags JCHAR for all the '%s' molecues not set or too many flags set. Flags: '%s'" % (pset.NMOL, v))
+
+        for i in range(len(v)):
+          if v[i].isdigit():
+            if pset.lw3_6ordered[i].show:
+              pset.lw3_6ordered[i].show = False
+              print("Setting '%s' to default value for Model = '%s'" % (pset.lw3_6ordered[i].name, v[i]))
+
+          elif v[i] in ['A','B','C','D','E','F','G']:
+            if not pset.lw3_6ordered[i].show:
+              raise ValueError("Values for '%s' must be set and show set to True" % (pset.lw3_6ordered[i].name))
+
+          else:
+            raise ValueError("Flag values for JCHAR must be 1-6, A-G")
 
     return Namelist('lwrecord3_5', \
         [Param('ZM',    0,  form='{:>10.3e}',   show=True), \
@@ -486,18 +502,16 @@ def lwrecord3_5(pset):
         Param('TM',     200,form='{:>10.3e}',   show=True), \
         Param('JCHARP', 'A',form='{:>6s}',      show=True), \
         Param('JCHART', 'A', form='{:>s}',      show=True), \
-        Param('JCHAR',  'AAA6666', form='{:>31s}', show=True)], \
+        Param('JCHAR',  'AAA6666', form='{:>31s}',trig = show_trig, show=True)], \
         pset)
     # }}}
 
 def lwrecord3_6(pset,NL):
   # {{{
     #IATM=1 and model =0 
-    def show_trig(v, pset):
-        pass
 
     return Namelist('lwrecord3_6', \
-        [Param('VMOLH2O', np.zeros(NL,'d'), form='{:>10.3e}', show = True, trig = show_trig ), \
+        [Param('VMOLH2O', np.zeros(NL,'d'), form='{:>10.3e}', show = True), \
         Param('VMOLCO2', np.zeros(NL,'d'), form='{:>10.3e}', show = True), \
         Param('VMOLO3', np.zeros(NL,'d'), form='{:>10.3e}', show = True), \
         Param('VMOLN2O', np.zeros(NL,'d'), form='{:>10.3e}'), \
