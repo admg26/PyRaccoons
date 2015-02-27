@@ -275,7 +275,7 @@ class ParamSet():
 
 class LW(ParamSet):
   # {{{
-    def __init__(self, name, NLEV, NLAY, **kwargs):
+    def __init__(self, name, NLEV=0, NLAY=0, **kwargs):
       # {{{  
       lw3_6 = lwrecord3_6(self,NLEV)
       lw3_6_ordered = lw3_6.prm_dict.values()
@@ -361,6 +361,7 @@ class LW(ParamSet):
 
       return s
 # }}}
+# }}}
 
 class SW(ParamSet):
   # {{{
@@ -424,7 +425,6 @@ def lwrecord3_1(pset,NLAY):
     #IATM=1
 
     def trig_nextrecord(v,pset):
-        print(pset.IBMAX)
         if pset.IBMAX == 0: 
             pset.lwrecord3_3A.active = True
         elif pset.IBMAX > 0:
@@ -591,10 +591,3 @@ def swprm(pset, NL):
         pset)
     # }}}
 
-if __name__ == "__main__":
-        TestLW = LW('lw',20,23)
-        f = open('INPUT_RRTM', 'w')
-        print('$', file = f)
-        print(TestLW.write(), file = f)
-        print('%', file = f)
-        f.close()
