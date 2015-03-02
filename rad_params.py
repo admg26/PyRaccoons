@@ -312,30 +312,33 @@ class LW(ParamSet):
 # }}}
     def write(self):
       # {{{
-
       s = ''
-      for l in self._lists:
-        if l.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
+
+      # Iterating over consecutives pairs. Could do this better with itertools
+      for lc, ln in zip(self._lists, self._lists[1:]):
+        
+        if lc.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
                      'lwrecord3_2','lwrecord3_3A','lwrecord3_4']:
-          s += l.write()
+          s += lc.write()
           s += '\n'
 
-        elif (l.name == 'lwrecord3_3B1' and l.active):
-          for i in range(self.IBMAX):
-            s += l.prm_dict['ZBND']._fmt.format(self.ZBND[i])
-            if (i % 8 == 7 or i == self.IBMAX-1): s += '\n'
+        elif (lc.name == 'lwrecord3_3B1' and lc.active):
+          for i in range(abs(self.IBMAX)):
+            s += lc.prm_dict['ZBND']._fmt.format(self.ZBND[i])
+            if (i % 8 == 7 or i == abs(self.IBMAX)-1): s += '\n'
 
-        elif (l.name == 'lwrecord3_3B2' and l.active):
-          for i in range(self.IBMAX):
-            s += l.prm_dict['PBND']._fmt.format(self.PBND[i])
+        elif (lc.name == 'lwrecord3_3B2' and lc.active):
+          for i in range(abs(self.IBMAX)):
+            s += lc.prm_dict['PBND']._fmt.format(self.PBND[i])
             if i % 8 == 7: s += '\n'
 
-        elif (l.name == 'lwrecord3_5' and l.active):
+        elif (lc.name == 'lwrecord3_5' and lc.active):
+
           # effectively ignore record 3.6 since it is dealt with when 3.5 is printed
           rowfmt3_5 = ''
-          params3_5 = l.prm_dict['JCHARP'].value
+          params3_5 = lc.prm_dict['JCHARP'].value
 
-          params3_5 = l.prm_dict.values()
+          params3_5 = lc.prm_dict.values()
           params3_5.sort(key=lambda p:p._order)
 
           for p in params3_5[:3]:
@@ -345,20 +348,23 @@ class LW(ParamSet):
           for p in params3_5[3:]:
             s_jchars += p._fmt.format(p.value)  
 
-          rowfmt = '' 
-          params = self.lw3_6ordered
-          for p in params[:self.NMOL]:
+          rowfmt = ''
+
+          params3_6 = ln.prm_dict.values()
+          params3_6.sort(key=lambda p:p._order)
+
+          for p in params3_6[:self.NMOL]:
             if p.display(): 
               rowfmt += p._fmt
             else: 
               rowfmt += p.write_default()
 
-          for i in range(self.IMMAX):
+          for i in range(abs(self.IMMAX)):
               s += rowfmt3_5.format(*[m.value[i] for m in params3_5[:3]]) \
                    + s_jchars + '\n'
-              s += rowfmt.format(*[m.value[i] for m in params[:self.NMOL]])
-              if i != self.IMMAX-1: s += '\n'
-
+              s += rowfmt.format(*[m.value[i] for m in params3_6[:self.NMOL]])
+              if i != abs(self.IMMAX)-1: s += '\n'
+              
       return s
 # }}}
 # }}}
@@ -396,7 +402,7 @@ def lwrecord1_4(pset):
         [Param('TBOUND',    200.0,  form='{:>10.3f}',show=True),\
         Param('IEMIS',     0,      form='{:>2d}',show=True),\
         Param('IREFLECT',  0,      form='{:>3d}',show=True),\
-        Param('SEMISS',    1,      form='{:>5.3f}',show=True)],\
+        Param('SEMISS',    1.0,      form='{:>5.3f}',show=True)],\
         pset)
     # }}}
 
