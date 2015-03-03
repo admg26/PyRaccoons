@@ -443,7 +443,7 @@ def lwrecord3_1(pset,NLAY):
         #Param('IBMAX',     NLAY,  form='{:>10d}',trigger = trig_nextrecord, show=True),\
     return Namelist('lwrecord3_1', \
         [Param('MODEL',    0,  form='{:>5d}',show=True), \
-        Param('IBMAX',     NLAY,  form='{:>10d}', show=True),\
+        Param('IBMAX',     NLAY,  form='{:>10d}', show=True, trigger = trig_nextrecord),\
         Param('NOPRNT',    0,  form='{:>10d}',show=True),\
         Param('NMOL',      7,  form='{:>5d}',show=True),\
         Param('IPUNCH',    0,  form='{:>5d}',show=True),\
@@ -478,7 +478,7 @@ def lwrecord3_3A(pset):
         Param('TDIFF1',     0,  form='{:>10.3f}', show=True),\
         Param('TDIFF2',     0,  form='{:>10.3f}', show=True),\
         Param('ALTD1',      0,  form='{:>10.3f}', show=True),\
-        Param('ALTD1',      0,  form='{:>10.3f}', show=True)],\
+        Param('ALTD2',      0,  form='{:>10.3f}', show=True)],\
         pset, active = False)
     # }}} 
 

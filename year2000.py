@@ -119,8 +119,9 @@ LW_erai.JCHAR = 'AAA6666'
 co2 = np.empty(nlevels) 
 co2.fill(370e-6)
 
-LW_erai.VMOLH2O = h2om(i_time = 0)[:].flatten()
-LW_erai.VMOLO3 = o3m(i_time = 0)[:].flatten()
+#reverse arrays since first element of VMOL is closest to the ground
+LW_erai.VMOLH2O = h2om(i_time = 0)[:].flatten()[::-1]
+LW_erai.VMOLO3 = o3m(i_time = 0)[:].flatten()[::-1]
 LW_erai.VMOLCO2 = co2
 
 f = open('INPUT_RRTM', 'w')

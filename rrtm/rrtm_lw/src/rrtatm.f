@@ -7866,7 +7866,8 @@ C CALCULATE GRAVITY AT REFERENCE LATITUDE AT SURFACE
 C CALCULATE THE NUMBER DENSITY OF TOTAL AIR MOLECULES [MOLEC/CM^3]              
 C CALCULATE THE COMPRESSIBILITY FACTOR (COMP_FAC) FOR THE                       
 C IDEAL GAS LAW                                                                 
-      XMASS_RATIO = XMASS_H2O/XMASS_DRY                                         
+      XMASS_RATIO = XMASS_H2O/XMASS_DRY
+      print *, "ratio", XMASS_RATIO      
       DO 10 J=1,ILVL                                                            
          DT = TM(J) - 273.15                                                    
          TOTAL_AIR = PM(J)*1.0E-4/(BOLTZ*TM(J))                                 
@@ -7887,7 +7888,7 @@ C CONVERT REFERENCE ALTITUDE TO METERS
       DO 20 I=1, ILVL - 1                                                       
          GAVE = G0*(RE/(RE+ZTEMP(I)/1000.0))**2                                 
          Y =  LOG(PM(I+1)/PM(I))                                                
-                                                                                
+         print *, 'I',I, PM(I+1),PM(I),Y                                                                       
          IF (Y. NE. 0.0) THEN                                                   
             CHI0 = H2O_MIXRAT(I)                                                
             DCHI = (H2O_MIXRAT(I+1)-H2O_MIXRAT(I))/Y                            
@@ -7902,7 +7903,7 @@ C CONVERT REFERENCE ALTITUDE TO METERS
             B = 1 + XMASS_RATIO*CHI0                                            
             A = XMASS_RATIO*DCHI                                                
             ALPHA = A/B                                                         
-                                                                                
+            print *,"alpha", ALPHA, ABS(ALPHA*Y)                                                                    
             IF ( ABS(ALPHA*Y) .GE. 0.01) THEN 
                PRINT*,'LAYER TOO THICK'                                         
                STOP                                                             
