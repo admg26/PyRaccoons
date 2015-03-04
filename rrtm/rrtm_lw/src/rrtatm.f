@@ -957,7 +957,7 @@ C PERFORM ALTITUDE CALCULATION USING HYDROSTATIC EQUATION
                         WVTMP(2) =  DENW(LIP-1) +                               
      &                       WVIP* LOG(PBND(IP)/PM(LIP-1))                      
                         CALL CMPALT(2,PTMP,TTMP,                                
-     &                       WVTMP,ZTMP(1),REF_LAT,ZTMP)                        
+     &                       WVTmP,ZTMP(1),REF_LAT,ZTMP)                        
                                                                                 
 C COMBINE THE INTERPOLATION AND THE HYDROSTATIC CALCULATION                     
                                                                                 
@@ -3122,7 +3122,7 @@ C
      &        ZMDL(1),REF_LAT,ZMDL)                                             
       ENDIF                                                                     
                                                                                 
-      DO 25 IM = 2,IMMAX                                                        
+      DO 25 IM = 2,IMMAX 
          IF (ZMDL(IM) .LE. ZMDL(IM-1)) GO TO 35  
  25      CONTINUE                                                               
                                                                                 
@@ -7857,22 +7857,24 @@ c      REAL BTZ
       DATA CC0/1.9898E-4/,CC1/-2.376E-6/                                        
       DATA CD/1.83E-11/,CE/-0.0765E-8/                                          
                                                                                 
-      DATA XMASS_H2O/0.018015/,XMASS_DRY/0.0289654/                             
+C      DATA XMASS_H2O/0.018015/,XMASS_DRY/0.0289654/                             
+      DATA XMASS_H2O/18.015/,XMASS_DRY/28.9654/                             
                                                                                 
 C CALCULATE GRAVITY AT REFERENCE LATITUDE AT SURFACE                            
-                                                                                
       G0 = GRAV - 0.02586*COS(2.0*PI*REF_LAT/180.0)                             
                                                                                 
 C CALCULATE THE NUMBER DENSITY OF TOTAL AIR MOLECULES [MOLEC/CM^3]              
 C CALCULATE THE COMPRESSIBILITY FACTOR (COMP_FAC) FOR THE                       
 C IDEAL GAS LAW                                                                 
       XMASS_RATIO = XMASS_H2O/XMASS_DRY
-      print *, "ratio", XMASS_RATIO      
       DO 10 J=1,ILVL                                                            
          DT = TM(J) - 273.15                                                    
-         TOTAL_AIR = PM(J)*1.0E-4/(BOLTZ*TM(J))                                 
+         !TOTAL_AIR = PM(J)*1.0E-4/(BOLTZ*TM(J))                                 
+         
+         !last 1e-6 to convert to molecules per cm3
+         TOTAL_AIR = PM(J)*100/((BOLTZ*1e-7)*TM(J)) * 1e-6                                  
          DRY_AIR = TOTAL_AIR - DENW(J)                                          
-         H2O_MIXRAT(J) = DENW(J)/DRY_AIR   
+         H2O_MIXRAT(J) = DENW(J)/DRY_AIR
          CHIM = XMASS_RATIO*H2O_MIXRAT(J)                                       
          COMP_FACTOR(J) = 1. - (PM(J)*100/TM(J))*                               
      *        (CA0 + CA1*DT + CA2*DT**2 +                                       
@@ -7882,41 +7884,36 @@ C IDEAL GAS LAW
                                                                                 
 C CONVERT REFERENCE ALTITUDE TO METERS                                          
                                                                                 
-      ZTEMP(1) = REF_Z*1000.0                                                   
+      ZTEMP(1) = REF_Z*1000.0 * 100.0                                                 
       ZMDL(1) = REF_Z                                                           
-                                                                                
       DO 20 I=1, ILVL - 1                                                       
-         GAVE = G0*(RE/(RE+ZTEMP(I)/1000.0))**2                                 
+         GAVE = G0*(RE/(RE+ZTEMP(I)/1000.0 / 100.0))**2                                 
          Y =  LOG(PM(I+1)/PM(I))                                                
-         print *, 'I',I, PM(I+1),PM(I),Y                                                                       
          IF (Y. NE. 0.0) THEN                                                   
-            CHI0 = H2O_MIXRAT(I)                                                
+            CHI0 = H2O_MIXRAT(I)
             DCHI = (H2O_MIXRAT(I+1)-H2O_MIXRAT(I))/Y                            
                                                                                 
             T0 = TM(I)                                                          
             DT = (TM(I+1) - TM(I))/Y                                            
-                                                                                
             C1 = T0 + T0*CHI0                                                   
             C2 = T0*DCHI + DT*CHI0 + DT                                         
             C3 = DT*DCHI                                                        
                                                                                 
             B = 1 + XMASS_RATIO*CHI0                                            
             A = XMASS_RATIO*DCHI                                                
-            ALPHA = A/B                                                         
-            print *,"alpha", ALPHA, ABS(ALPHA*Y)                                                                    
+            ALPHA = A/B              
             IF ( ABS(ALPHA*Y) .GE. 0.01) THEN 
-               PRINT*,'LAYER TOO THICK'                                         
-               STOP                                                             
+               !PRINT*,'LAYER TOO THICK'                                         
+               !STOP                                                             
             ENDIF                                                               
-                                                                                
             XINT_TOT = C1*Y + 0.5*(C2-C1*ALPHA)*Y**2 +                          
      &           0.3333*(C3-C2*ALPHA+C1*ALPHA**2)*Y**3                          
             XINT_TOT =  -XINT_TOT*GASCON/(XMASS_DRY*GAVE*B)                     
             ZTEMP(I+1) = ZTEMP(I) + XINT_TOT*COMP_FACTOR(I)                     
-            ZMDL(I+1) = ZTEMP(I+1)/1000.                                        
+            ZMDL(I+1) = ZTEMP(I+1)/1000/ 100                                       
         ELSE                                                                    
-           ZTEMP(I+1) = ZMDL(I)*1000.0                                          
-           ZMDL(I+1) = ZMDL(I)                                                  
+           ZTEMP(I+1) = ZMDL(I)*1000.0 / 100.0                                        
+           ZMDL(I+1) = ZMDL(I)  
         ENDIF                                                                   
  20      CONTINUE                                                               
                                                                                 

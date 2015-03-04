@@ -4,6 +4,12 @@ import pygeode as pyg
 import numpy as np
 from pygeode.atmdyn import constants as c
 
+import os
+import sys
+import shutil
+import subprocess
+import re
+
 #def main():
 dir_path = "/data/apollon/atmos/data/ECMWF/incoming/"
 ## Read in specific humidity and convert into vmr
@@ -34,40 +40,43 @@ B = np.loadtxt('full_ab.txt', usecols=(2,))
 # Set hybrid values appropriate for a reference surface pressure
 p0 = 101325
 mldt = dict(level =  pyg.Hybrid(A/p0 + B, A=A, B=B))
-mlp = pyg.Pres(mldt['level'](eta=(0.3 * 100 / p0, 1))[:] * p0 / 100)
+mlp = pyg.Pres(mldt['level'][:] * p0 / 100)
 
-# Names of tendency variables
-nm = {'p100.162':'qtendASSW', \
-      'p101.162':'qtendASLW', \
-      'p102.162':'qtendCSSW', \
-      'p103.162':'qtendCSLW', \
-      'p110.162':'Ttend'}
+## Names of tendency variables
+#nm = {'p100.162':'qtendASSW', \
+#      'p101.162':'qtendASLW', \
+#      'p102.162':'qtendCSSW', \
+#      'p103.162':'qtendCSLW', \
+#      'p110.162':'Ttend'}
+
+nmlat = {'latitude':'lat'}
 
 # Read in data sets
 pattern = '$Y$m$d$H.nc'
-mlan = pyg.open_multi(mlpath + 'EI_HR_analysis2000*.nc', pattern=pattern, \
-             dimtypes=mldt)
-mlsfc = pyg.open_multi(mlpath + 'EI_HR_sfcforecast2000*.nc', pattern=pattern)
-mlfc = pyg.open_multi(mlpath + 'EI_HR_forecast2000*.nc', pattern=pattern, \
-                 dimtypes=mldt, namemap=nm)
+mlan = pyg.open_multi(mlpath + 'EI_HR_analysis2000*.nc', pattern=pattern, namemap = nmlat)
+mlsfc = pyg.open_multi(mlpath + 'EI_HR_sfcforecast2000*.nc', pattern=pattern, namemap = nmlat)
+#mlfc = pyg.open_multi(mlpath + 'EI_HR_forecast2000*.nc', pattern=pattern,namemap=nm)
+
+mlan.name = 'o3'
+surfgeo =  pyg.open('/data/athena/atmos/era_interim/erai_surfacegeo.nc', namemap = nmlat)
 
 #convert h2o specific humidity to volume mixing ratio
-h2o = mlan.q.mean(pyg.Lon) / (1 - mlan.q.mean(pyg.Lon)) * (28.966 / 18.016)
+h2o = mlan.q.mean(pyg.Lon) / (1 - mlan.q.mean(pyg.Lon)) * (28.966 / 18.016) 
 h2o.name = 'h2o'
+
 
 #pick out one latitude and make daily averages 
 lat = 0.0
 time = 0
 
-Tm = pyg.dailymean(mlan.t(latitude = lat, eta = (0.3 * 100 / p0, 1)).mean(pyg.Lon))
-h2om = pyg.dailymean(h2o(latitude = lat, eta = (0.3 * 100 / p0, 1)))
-SSTm = pyg.dailymean(mlsfc.skt(latitude = lat).mean(pyg.Lon))
-SPm = pyg.dailymean(mlan.lnsp(latitude = lat, eta = 0).mean(pyg.Lon)).exp()
+Tm = pyg.dailymean(mlan.t.mean(pyg.Lon))
+h2om = pyg.dailymean(h2o)
+SSTm = pyg.dailymean(mlsfc.skt.mean(pyg.Lon))
+SPm = pyg.dailymean(mlan.lnsp(i_level = 0).mean(pyg.Lon)).exp()
+zg = surfgeo.z.mean(pyg.Lon) / c.g0
 
-#Interpolate o3 to hybrid levels
-o3m = o3(lat = lat).interpolate(po3, mlp, interp_type='cspline').fill(0.0)
 
-nlayers = 60 # not used
+nlayers = len(mlp) - 1
 nlevels = len(mlp)
 
 LW_erai = LW('lw', NLEV = nlevels, NLAY = nlayers)
@@ -81,54 +90,87 @@ LW_erai.NUMANGS = 4
 LW_erai.ICLD = 0
  
 # Record 1.4  
-LW_erai.TBOUND = SSTm(i_time = 0)[:].flatten()[0]
 LW_erai.IEMIS = 1
 LW_erai.SEMISS= 0.6
 
-# Record 1.4  
+# Record 3.1  
 LW_erai.MODEL = 0
-LW_erai.IBMAX = 0
+LW_erai.IBMAX = -nlayers
+LW_erai.NOPRNT = 0
 LW_erai.NMOL = 7
 LW_erai.CO2MX = 0
-LW_erai.REF_LAT = lat
 
-# Record 3.2
-#convert to hPa
-LW_erai.HBOUND = SPm(i_time = 0)[:].flatten()[0] / 100 
-LW_erai.HTOA = mldt['level'][0] * p0 / 100 
-
-## Record 3.3B2
-#LW_erai.PBND =  
-
-# Record 3.4
-LW_erai.IMMAX = -nlevels
-
-# Record 3.5
-# Only the first z level matters
-zlevels = np.zeros(nlevels)
-zlevels[0] = 10
-
-LW_erai.ZM = zlevels 
-LW_erai.PM = np.flipud(mldt['level']) * p0 / 100
-LW_erai.TM = Tm(time = 0)[:].flatten()  
+# Record 3.6
 LW_erai.JCHARP = 'A'
 LW_erai.JCHART = 'A'
 LW_erai.JCHAR = 'AAA6666'
 
-# Record 3.6
-co2 = np.empty(nlevels) 
-co2.fill(370e-6)
+latvalues = np.arange(-40,45,5)
+o3lat = o3.interpolate(lato3, pyg.Lat(latvalues), interp_type='cspline', d_below = 0, d_above = 0)
 
-#reverse arrays since first element of VMOL is closest to the ground
-LW_erai.VMOLH2O = h2om(i_time = 0)[:].flatten()[::-1]
-LW_erai.VMOLO3 = o3m(i_time = 0)[:].flatten()[::-1]
-LW_erai.VMOLCO2 = co2
+for ilat in range(len(latvalues)):
+  print(latvalues[ilat]) 
+  for i in range(366):
+  
+    surfp = SPm(i_time = i)[:].flatten()[0] 
+    mlp_new =  pyg.Pres((A / surfp + B) * surfp)
+  
+    # Interpolate o3 to hybrid levels
+    o3m = o3lat.interpolate(po3, mlp_new, interp_type='cspline', d_below = 0, d_above = 0)
+  
+    # Record 1.4  
+    LW_erai.TBOUND = SSTm(lat = latvalues[ilat], i_time = i)[:].flatten()[0]
+  
+    #make some evenly space levels in log p between 1012 and 0.5 hPa
+    a = mlp_new[:]
+    layers = pyg.Pres(a[:-1] + np.diff(a) / 2) / 100.0
+  
+    # Record 3.1  
+    LW_erai.IBMAX = -nlayers
+    LW_erai.REF_LAT = latvalues[ilat]
+  
+    # Record 3.2
+    #convert to hPa
+    #LW_erai.HBOUND = SPm(i_time = 0)[:].flatten()[0] / 100 
+    
+    LW_erai.HBOUND = mlp_new[-1]  #0.0 
+    LW_erai.HTOA = mlp_new[0]   #54.0
+    
+    ## Record 3.3B2
+    LW_erai.PBND = layers[::-1]  
+    
+    # Record 3.1
+    LW_erai.IMMAX = -nlevels
+    
+    # Record 3.5
+    # Only the first z level matters
+    zlevels = np.zeros(nlevels)
+    # surface geopotential height in km
+    zlevels[0] = zg(lat = latvalues[ilat])[:].flatten()[0] / 1.0e3 
+  
+    # Record 3.5
+    LW_erai.ZM = zlevels 
+    LW_erai.PM = mlp_new[::-1]
+    LW_erai.TM = Tm(lat = latvalues[ilat], i_time = i)[:].flatten()[::-1] 
+  
+    # Record 3.6
+    co2 = np.empty(nlevels) 
+    co2.fill(370e-6)
+  
+    #reverse arrays since first element of VMOL is closest to the ground
+    LW_erai.VMOLH2O = h2om(lat = latvalues[ilat], i_time = i)[:].flatten()[::-1] * 1.0e6
+    LW_erai.VMOLO3 = o3m(lat = latvalues[ilat], i_time = i)[:].flatten()[::-1] * 1.0e6
+    LW_erai.VMOLCO2 = co2 * 1.0e6
+  
+    filename = 'control_' + str(ilat) + '_' + str(i) + '.dat' 
+  
+    f = open('input_files/' + filename, 'w')
+    print('$', file = f)
+    print(LW_erai.write(), file = f)
+    print('%', file = f)
+    f.close()
 
-f = open('INPUT_RRTM', 'w')
-print('$', file = f)
-print(LW_erai.write(), file = f)
-print('%', file = f)
-f.close()
+  
 #
 
 #if __name__ == "__main__":

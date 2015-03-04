@@ -317,8 +317,8 @@ class LW(ParamSet):
       # Iterating over consecutives pairs. Could do this better with itertools
       for lc, ln in zip(self._lists, self._lists[1:]):
         
-        if lc.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
-                     'lwrecord3_2','lwrecord3_3A','lwrecord3_4']:
+        if (lc.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
+                     'lwrecord3_2','lwrecord3_3A','lwrecord3_4'] and lc.active):
           s += lc.write()
           s += '\n'
 
@@ -330,7 +330,7 @@ class LW(ParamSet):
         elif (lc.name == 'lwrecord3_3B2' and lc.active):
           for i in range(abs(self.IBMAX)):
             s += lc.prm_dict['PBND']._fmt.format(self.PBND[i])
-            if i % 8 == 7: s += '\n'
+            if (i % 8 == 7 or i == abs(self.IBMAX)-1): s += '\n'
 
         elif (lc.name == 'lwrecord3_5' and lc.active):
 
@@ -436,8 +436,10 @@ def lwrecord3_1(pset,NLAY):
         elif pset.IBMAX > 0:
             pset.lwrecord3_3A.active = False
             pset.lwrecord3_3B1.active = True
+            pset.lwrecord3_3B2.active = False
         else:
             pset.lwrecord3_3A.active = False
+            pset.lwrecord3_3B1.active = False
             pset.lwrecord3_3B2.active = True
 
         #Param('IBMAX',     NLAY,  form='{:>10d}',trigger = trig_nextrecord, show=True),\
