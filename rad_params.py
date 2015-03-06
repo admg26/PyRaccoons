@@ -317,9 +317,21 @@ class LW(ParamSet):
       # Iterating over consecutives pairs. Could do this better with itertools
       for lc, ln in zip(self._lists, self._lists[1:]):
         
-        if (lc.name in ['lwrecord1_2','lwrecord1_4','lwrecord2_1','lwrecord3_1',\
+        if (lc.name in ['lwrecord1_2','lwrecord2_1','lwrecord3_1',\
                      'lwrecord3_2','lwrecord3_3A','lwrecord3_4'] and lc.active):
           s += lc.write()
+          s += '\n'
+
+        elif (lc.name == 'lwrecord1_4' and lc.active):
+          params1_4 = lc.prm_dict.values()
+          params1_4.sort(key=lambda p:p._order)
+          for p in params1_4[:3]:
+            s += p._fmt.format(p.value) 
+
+          if self.IEMIS != 0:
+            for i in range(16):
+              s += lc.prm_dict['SEMISS']._fmt.format(self.SEMISS[i])
+
           s += '\n'
 
         elif (lc.name == 'lwrecord3_3B1' and lc.active):
@@ -353,18 +365,21 @@ class LW(ParamSet):
           params3_6 = ln.prm_dict.values()
           params3_6.sort(key=lambda p:p._order)
 
-          for p in params3_6[:self.NMOL]:
-            if p.display(): 
-              rowfmt += p._fmt
-            else: 
-              rowfmt += p.write_default()
 
           for i in range(abs(self.IMMAX)):
               s += rowfmt3_5.format(*[m.value[i] for m in params3_5[:3]]) \
                    + s_jchars + '\n'
-              s += rowfmt.format(*[m.value[i] for m in params3_6[:self.NMOL]])
-              if i != abs(self.IMMAX)-1: s += '\n'
-              
+              for ind, m in enumerate(params3_6[:self.NMOL]):
+                if self.lw3_6ordered[0].display(): 
+                  s += m._fmt.format(m.value[i])
+                else: 
+                  s += m.write_default()
+                if i != abs(self.IMMAX) - 1:
+                  if (ind % 8 == 7 or ind == self.NMOL - 1):
+                    s += '\n'
+                else:
+                  if (ind % 8 == 7 and self.NMOL - 1 > ind):
+                    s += '\n'
       return s
 # }}}
 # }}}
@@ -402,7 +417,7 @@ def lwrecord1_4(pset):
         [Param('TBOUND',    200.0,  form='{:>10.3f}',show=True),\
         Param('IEMIS',     0,      form='{:>2d}',show=True),\
         Param('IREFLECT',  0,      form='{:>3d}',show=True),\
-        Param('SEMISS',    1.0,      form='{:>5.3f}',show=True)],\
+        Param('SEMISS',    np.ones(16),      form='{:>5.3f}',show=True)],\
         pset)
     # }}}
 
@@ -528,7 +543,8 @@ def lwrecord3_5(pset,NLEV):
 
           elif v[i] in ['A','B','C','D','E','F','G']:
             if not pset.lw3_6ordered[i].show:
-              print("Setting '%s' amount to zero" % (pset.lw3_6ordered[i].name))
+              pset.lw3_6ordered[i].show = True
+              print("Setting '%s' amount" % (pset.lw3_6ordered[i].name))
 
           else:
             raise ValueError("Flag values for JCHAR must be 1-6, A-G")
