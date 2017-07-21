@@ -2,7 +2,7 @@ import numpy as np
 import params
 import subprocess, os
 
-class ZH(params.LW, params.SW):
+class ZH(params.SW, params.LW):
 # {{{
     ''' Parent class for longwave column radiative transfer calculations. '''
     prmname = 'ZH'
@@ -11,7 +11,7 @@ class ZH(params.LW, params.SW):
     # Define parameter model, serialization options
     def __init__(self, Nl, Np=1, **kwargs):
     # {{{
-        lists = [zhprofile(self, Nl, Np)] #, zhlwopt(self)]
+        lists = [zhprofile(self, Nl, Np), zhswbase(self, Np)]
         params.SW.__init__(self, self.prmname, Nl, Np, lists=lists, **kwargs)
         params.LW.__init__(self, self.prmname, Nl, Np, lists=lists, **kwargs)
     # }}}
@@ -19,9 +19,15 @@ class ZH(params.LW, params.SW):
     def write_input(self, i):
     # {{{
         fn = self.ascpath + self.name + '_input_%d' % i
-        surface_T  = '{TBOUND:>10.3f}\n'
-        lwrec      = '{LEVEL:>10d}{TLEVEL:>15.6f}{H2O:>15.7e}{PLEVEL:>15.3f}{O3:>15.7e}\n'
+        record0      = '{month:>10d}{day:>15.6f}{lat:>15.3f}{albedo:>15.3f}{zenitha:>15.3f}\n'
+        surface_T   = '{TBOUND:>10.3f}\n'
+        record1      = '{LEVEL:>10d}{TLEVEL:>15.6f}{H2O:>15.7e}{PLEVEL:>15.3f}{O3:>15.7e}\n'
 
+        l0  = dict(month   = 1, \
+                   day     = 1, \
+                   lat     = self.lat[i], \
+                   albedo  = self.alb[i], \
+                   zenitha = self.cosz[i]*180/np.pi)
         l1  = dict(TBOUND = self.Tsfc[i])
         l2  = dict(LEVEL   = i,     \
                    TLEVEL  = self.T    [i, self.Nl - 1], \
@@ -30,6 +36,7 @@ class ZH(params.LW, params.SW):
                    O3      = self.O3   [i, self.Nl - 1])
 
         with open(fn, 'w') as f:
+            f.write(record0.format(**l0))
             f.write(surface_T.format(**l1))
 
             for k in range(self.Nl)[::-1]:
@@ -39,7 +46,7 @@ class ZH(params.LW, params.SW):
                 l2['PLEVEL']  = self.pres [i, k]*100 
                 l2['H2O']     = self.H2O  [i, k]
                 l2['O3']      = self.O3   [i, k]
-                f.write(lwrec.format(**l2))
+                f.write(record1.format(**l2))
 
         return fn
     # }}}
@@ -87,14 +94,14 @@ class ZH(params.LW, params.SW):
             os.unlink('./INPUT_ZH')
 
             # read OUTPUT_ZH into numpy array
-            rd_lw.lwhr = np.loadtxt(ofn_lw)
-            rd_sw.swhr = np.loadtxt(ofn_sw)
+            rd_lw.lwhr = np.flipud(np.loadtxt(ofn_lw))
+            rd_sw.swhr = np.flipud(np.loadtxt(ofn_sw))
             flux_lw = self.read_flux_lw(ofn_flux_lw)
             flux_sw = self.read_flux_sw(ofn_flux_sw)
-            rd_lw.uflxlw[i, :]   = flux_lw['uflxlw']
-            rd_lw.dflxlw[i, :]   = flux_lw['dflxlw']
-            rd_sw.uflxsw[i, :]   = flux_sw['uflxsw']
-            rd_sw.dflxsw[i, :]   = flux_sw['dflxsw']
+            rd_lw.uflxlw[i, :] = flux_lw['uflxlw']
+            rd_lw.dflxlw[i, :] = flux_lw['dflxlw']
+            rd_sw.uflxsw[i, :] = flux_sw['uflxsw']
+            rd_sw.dflxsw[i, :] = flux_sw['dflxsw']
 
         return {'rd_lw':rd_lw, 'rd_sw':rd_sw}
     # }}}
@@ -104,9 +111,22 @@ def zhprofile(pset, Nl, Nprof):
 # {{{
     Nhl = Nl + 1
     one  = np.ones((Nprof, Nl), 'd')
+    onep  = np.ones(Nprof, 'd')
     ncax  = ('profiles', 'levels')
+    ncaxp  = ('profiles')
     return params.Namelist('profile', \
-        [params.Param('T',  250. * one, ncaxes=ncax)],\
+        [params.Param('lat',  10. * onep, ncaxes=ncaxp),\
+        params.Param('T',  250. * one, ncaxes=ncax)],\
+        pset)
+# }}}
+
+def zhswbase(pset, Nprof):
+# {{{
+    onep  = np.ones(Nprof, 'd')
+    ncaxp  = ('profiles')
+    return params.Namelist('swbase', \
+        [params.Param('cosz',  0.5 * onep, ncaxes=ncaxp),\
+        params.Param('alb',   0.5 * onep, ncaxes=ncaxp)],\
         pset)
 # }}}
 
@@ -117,6 +137,9 @@ pf = np.sqrt(ph[:-1] * ph[1:])
 
 prm = ZH(Nl, 1, pres=pf, phalf=ph)
 prm.Tsfc = np.linspace(250, 300., 1)
+prm.lat = np.linspace(10, 30., 1)
+prm.alb = np.linspace(0.1, 1., 1)
+prm.cosz = np.linspace(0.2, 0.7, 1)
 rd = prm.run()
 
 # Example usage

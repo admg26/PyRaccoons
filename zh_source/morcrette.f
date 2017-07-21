@@ -48,12 +48,11 @@ C
 C      OPEN(12,FILE='in_month',STATUS='OLD',FORM='FORMATTED')
 C      READ(12,*) imonth
 C      CLOSE(12)
-      imonth = 1
-      iday = 1
-      XLATITUDE = 0.0 
-      ALBMPAR = 1
-      AMU0 = 50
 
+      input_file='INPUT_ZH'
+      OPEN(11,FILE=input_file,STATUS='OLD',FORM='FORMATTED')
+
+      READ(11,*) imonth, iday, XLATITUDE, ALBMPAR, AMU0
 C      OPEN(13,FILE='in_day',STATUS='OLD',FORM='FORMATTED')
 C      READ(13,*) iday
 C      CLOSE(13)
@@ -118,8 +117,6 @@ C Set up height grid (in terms of pressure)
 C
       IF (NLP2 .NE. NLON) WRITE(6,*) ' problems with vertical velocity'
 
-      input_file='INPUT_ZH'
-      OPEN(11,FILE=input_file,STATUS='OLD',FORM='FORMATTED')
 C
 C remark: Temp, vmrH2O, vmrO3 and vmrCO2 where changed to use
 C            bruehl.dat (IBRUEHL=1)

@@ -128,7 +128,7 @@ class Namelist():
       params = []
       porder = []
       for k, v in nlist.prm_dict.iteritems():
-        params.append(IGCMParam.copy(v))
+        params.append(Param.copy(v))
         porder.append(v._order)
 
       params = [params[i] for i in np.argsort(porder)]
@@ -423,9 +423,11 @@ def profile(pset, Nl, Nprof):
     ncaxh = ('profiles', 'hlevels')
     ncaxp = ('profiles',)
     return Namelist('profile', \
-        [Param('pres',         one,  ncaxes=ncax),\
+        [Param('pres',          one,  ncaxes=ncax),\
          Param('phalf',        oneh, ncaxes=ncaxh),\
-         Param('T',     250. * one,  ncaxes=ncax),\
+         Param('lat',     0. * onep,  ncaxes=ncaxp),\
+         Param('lon',     0. * onep,  ncaxes=ncaxp),\
+         Param('T',      250. * one,  ncaxes=ncax),\
          Param('Tsfc',  250. * onep, ncaxes=ncaxp)],\
         pset)
 # }}}
